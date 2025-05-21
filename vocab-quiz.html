@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary MCQ Quiz</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; display: flex; justify-content: center; }
+    .container { background: white; padding: 20px; border-radius: 10px; max-width: 500px; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .question { font-size: 18px; margin-bottom: 10px; }
+    .options button { display: block; width: 100%; margin: 5px 0; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; background: #f0f0f0; cursor: pointer; }
+    .options button.selected { background: #007BFF; color: white; }
+    .next-btn { margin-top: 10px; padding: 10px 15px; background: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    .timer { font-size: 14px; color: #666; margin-top: 10px; }
+    .result { font-size: 20px; font-weight: bold; text-align: center; }
+    .progress-container { background: #e0e0e0; border-radius: 5px; height: 10px; margin-top: 8px; overflow: hidden; }
+    .progress-bar { height: 100%; width: 100%; background-color: #007BFF; transition: width 1s linear; }
+    input[type="file"] { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <input type="file" id="csvFile" accept=".csv" />
+    <div id="quiz"></div>
+  </div>
+
+  <script>
+    let questions = [];
+    let currentQuestion = 0;
+    let score = 0;
+    let userAnswers = [];
+    let timePerQuestion = [];
+    let selectedOption = null;
+    let timeLeft = 30;
+    let timerInterval;
+
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const lines = e.target.result.split('\n').filter(line => line.trim());
+        questions = lines.map(line => {
+          const [question, opt1, opt2, opt3, opt4, answer] = line.split(',');
+          return {
+            question: question.trim(),
+            options: [opt1.trim(), opt2.trim(), opt3.trim(), opt4.trim()],
+            answer: parseInt(answer.trim())
+          };
+        });
+        renderQuestion();
+      };
+      reader.readAsText(file);
+    });
+
+    function renderQuestion() {
+      const quizContainer = document.getElementById('quiz');
+      if (currentQuestion >= questions.length) {
+        let reviewHTML = '<h3>Review:</h3><ul>' + questions.map((q, i) => {
+          const isCorrect = q.answer === (userAnswers[i] ?? -1);
+          return `<li style='margin-bottom:10px;'>
+            <strong>Q${i+1}: ${q.question}</strong><br>
+            Your answer: <em>${q.options[userAnswers[i]] ?? 'No answer'}</em><br>
+            Correct answer: <strong>${q.options[q.answer]}</strong><br>
+            Time spent: ${timePerQuestion[i] ?? 0}s<br>
+            <span style='color:${isCorrect ? 'green' : 'red'};'>${isCorrect ? 'Correct' : 'Incorrect'}</span>
+          </li>`;
+        }).join('') + '</ul>';
+        const percentScore = ((score / questions.length) * 100).toFixed(2);
+        quizContainer.innerHTML = `<div class='result'>Quiz Completed!<br>Your Score: ${score}/${questions.length} (${percentScore}%)</div>` + reviewHTML;
+        return;
+      }
+
+      const q = questions[currentQuestion];
+      quizContainer.innerHTML = `
+        <div class="question">${q.question}</div>
+        <div class="options">
+          ${q.options.map((opt, i) => `<button onclick="selectOption(${i})" id="opt${i}">${opt}</button>`).join('')}
+        </div>
+        <div class="timer" id="timer">Time left: ${timeLeft}s</div>
+        <div class="progress-container">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <button class="next-btn" onclick="nextQuestion()">Next</button>
+      `;
+      startTimer();
+    }
+
+    function selectOption(index) {
+      selectedOption = index;
+      document.querySelectorAll('.options button').forEach((btn, i) => {
+        btn.classList.remove('selected');
+        if (i === index) btn.classList.add('selected');
+      });
+    }
+
+    function nextQuestion() {
+      clearInterval(timerInterval);
+      if (selectedOption === questions[currentQuestion].answer) {
+        score++;
+      }
+      const elapsedTime = 30 - timeLeft;
+      timePerQuestion[currentQuestion] = elapsedTime;
+      userAnswers[currentQuestion] = selectedOption;
+      currentQuestion++;
+      selectedOption = null;
+      timeLeft = 30;
+      renderQuestion();
+    }
+
+    function startTimer() {
+      const progressBar = document.getElementById('progress-bar');
+      const totalTime = 30;
+      timeLeft = totalTime;
+      progressBar.style.width = '100%';
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        const timerEl = document.getElementById('timer');
+        if (timerEl) timerEl.textContent = `Time left: ${timeLeft}s`;
+
+        const percent = (timeLeft / totalTime) * 100;
+        progressBar.style.width = percent + '%';
+
+        if (timeLeft <= 0) {
+          timePerQuestion[currentQuestion] = 30;
+          nextQuestion();
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>
